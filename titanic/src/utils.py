@@ -170,6 +170,18 @@ def hyperparameter_tuning(models: list, X_train: pd.DataFrame, y_train: pd.Serie
         return joblib.dump(grid_search, save_path)
 
 
+# Function to display the best hyperparameters for each model
+def display_best_params(models: list, param_grids: dict) -> None:
+    # Loop through the classifiers
+    for i, classifier in enumerate(classifiers):
+        classifier_name = classifier.__class__.__name__
+        grid_search = joblib.load(
+            os.path.join(f'models/grid_search_{classifier_name}.pkl')
+        )
+        print(classifier_name, 'best parameters:')
+        display(grid_search.best_params_)
+
+
 # Function to test the best model using the Kaggle API
 def model_submission(models: list, X_train: pd.DataFrame, y_train: pd.Series, X_test: pd.DataFrame):
 

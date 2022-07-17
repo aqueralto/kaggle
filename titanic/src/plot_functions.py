@@ -306,3 +306,55 @@ def plot_learning_curves(models: list, X_train: pd.DataFrame, y_train: pd.Series
 
     # Return the dataframe with the results
     return df_results
+
+
+# Function to evaluate feature importance
+def plot_feature_importance(classifiers: list, X_test: pd.DataFrame) -> pd.DataFrame:
+    """
+    Function to evaluate feature importance on all models and return 
+    a dataframe with the scores of each model.
+    """
+
+    # Initialize the dataframes
+    predictions = pd.DataFrame(index=X_test.index)
+    feature_importances = pd.DataFrame(index=X_test.columns)
+    models = []
+
+    # Iterate each model
+    for classifier in classifiers:
+
+        # Load the model from disk
+        classifier_name = model.__class__.__name__
+        model = joblib.load(
+                            os.path.join(f'models/grid_search_{classifier.__class__.__name__}.pkl')
+                           ).best_estimator_
+
+        # Append results to the list
+        models.append((classifier_name, model))
+
+        # Store predictions
+        predictions[classifier_name] = model.predict(X_test)
+
+        # Get the feature importances
+        feature_importances[classifier_name] = model.feature_importances_
+
+        # Create plot        
+        sns.barplot(x=feature_importance, y=X_test.columns, ax=axes[ax_i])
+        axes[ax_i].set_title(classifier_name)
+        
+        ax_i += 1
+
+    plt.tight_layout()
+
+    # Return the dataframe with the results
+    return predictions, feature_importances, models
+
+# Function to plot the correlation between predictions
+def plot_prediction_correlation(predictions: pd.DataFrame) -> None:
+
+    # Plot correlation of predictions.
+    fig, ax = plt.subplots(figsize=(4, 4))
+    fig.suptitle('Prediction correlations');
+    sns.heatmap(predictions.corr(), square=True, cmap='RdBu', annot=True, ax=ax);
+
+    plt.show()

@@ -3,7 +3,7 @@ import joblib
 import pandas as pd
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.impute import KNNImputer
-from sklearn.model_selection import StratifiedKFold, cross_val_score, GridSearchCV
+from sklearn.model_selection import StratifiedKFold, cross_val_score, GridSearchCV, LeaveOneOut
 # from src import kaggle_api
 
 # Function x**(1/2) for Y-axis scale
@@ -171,19 +171,58 @@ def hyperparameter_tuning(models: list, X_train: pd.DataFrame, y_train: pd.Serie
 
 
 # Function to display the best hyperparameters for each model
-def display_best_params(models: list, param_grids: dict) -> None:
-    # Loop through the classifiers
-    for i, classifier in enumerate(classifiers):
+def display_best_params(classifiers: list) -> None:
+    # Show the best parameters from the grid search for each classifier
+    for classifier in classifiers:
+        # Get the name of the classifier
         classifier_name = classifier.__class__.__name__
-        grid_search = joblib.load(
-            os.path.join(f'models/grid_search_{classifier_name}.pkl')
-        )
+
+        # Load the classifier
+        grid_search = joblib.load(f'models/grid_search_{classifier_name}.pkl')
+
+        # Print the best parameters
         print(classifier_name, 'best parameters:')
         display(grid_search.best_params_)
 
+# Function to do leave-one-out cross validation on all models
+def leave_one_out_cv(classifiers: list, X_train: pd.DataFrame, y_train: pd.Series, param_grids: dict) -> list:
+    """
+    Function to do Leave-One-Out hyperparameter tuning on all models and return 
+    the best model, saving it in a file.
+    """
+    # Define the leave-one-out cross validation object
+    loo = LeaveOneOut()
 
-# Function to test the best model using the Kaggle API
+    # Create a list to store the models
+    models = []
+    # Iterate each classifier
+    for clf, param_grid in zip(classifiers, param_grids):
+
+        # Get classifier name
+        classifier_name = clf.__class__.__name__
+        
+        # Skip if a parameter search has already been run.
+        save_path = os.path.join(
+                                    f'models/LOO_{clf.__class__.__name__}.pkl'
+                                )
+        if os.path.exists(save_path):
+            loo_cv = joblib.load(save_path)
+        else:
+            # Run a parameter grid search for each model
+            loo_cv = GridSearchCV(clf, param_grid, cv=loo, verbose=True, n_jobs=-1)
+            loo_cv.fit(X_train, y_train)
+
+            # Get the best model
+            models.append((classifier_name, loo_cv.best_estimator_))
+
+            # Save the grid search to disk
+            return joblib.dump(loo_cv, save_path), models
+
+# Function to test the best model
 def model_submission(models: list, X_train: pd.DataFrame, y_train: pd.Series, X_test: pd.DataFrame):
+
+    # Load the file data/gender_submission.csv
+    gender_submission = pd.read_csv('data/gender_submission.csv', header=0)
 
     # Iterate on the models
     for model in models:
@@ -202,6 +241,12 @@ def model_submission(models: list, X_train: pd.DataFrame, y_train: pd.Series, X_
         # Predict the test set
         y_pred = grid_search.predict(X_test)
 
+        # Get the accuracy of the model
+        accuracy = accuracy_score(gender_submission, y_pred)
+
+        # Print accuracy
+        print(f'Accuracy of {model_name} = {accuracy}')
+
         # Create a submission dataframe
         submission = pd.DataFrame({'PassengerId': (X_test.index+1), 'Survived': y_pred})
 
@@ -210,3 +255,42 @@ def model_submission(models: list, X_train: pd.DataFrame, y_train: pd.Series, X_
 
         # Save the submission to disk
         submission.to_csv(f'submissions/{model_name}.csv', index=False)
+
+
+# Function to test the best model with LOO
+def model_submission_loo(models: list, X_train: pd.DataFrame, y_train: pd.Series, X_test: pd.DataFrame):
+
+    # Load the file data/gender_submission.csv
+    gender_submission = pd.read_csv('data/gender_submission.csv', header=0)
+
+    # Iterate on the models
+    for model in models:
+
+        # Get the name of the model
+        model_name = model.__class__.__name__
+            
+        # Load the model
+        loo = joblib.load(
+            os.path.join(f'models/loo_{model_name}.pkl')
+        )
+
+        # Get the best estimator
+        loo.best_estimator_.fit(X_train, y_train)
+
+        # Predict the test set
+        y_pred = loo.predict(X_test)
+
+        # Get the accuracy of the model
+        accuracy = accuracy_score(gender_submission, y_pred)
+
+        # Print accuracy
+        print(f'Accuracy of {model_name} = {accuracy}')
+
+        # Create a submission dataframe
+        submission = pd.DataFrame({'PassengerId': (X_test.index+1), 'Survived': y_pred})
+
+        # Ensure that the values from the survival column are integers
+        submission['Survived'] = submission['Survived'].astype(int)
+
+        # Save the submission to disk
+        submission.to_csv(f'submissions/loo_{model_name}.csv', index=False)

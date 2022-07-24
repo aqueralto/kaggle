@@ -315,6 +315,14 @@ def plot_feature_importance(classifiers: list, X_test: pd.DataFrame) -> pd.DataF
     a dataframe with the scores of each model.
     """
 
+    # Set figure for feature importances
+    fig, axes = plt.subplots(nrows=len(classifiers)//2, ncols=len(classifiers), figsize=(20, 8), sharey='row', sharex='all')
+    fig.suptitle('Feature Importances', fontsize=24)
+
+    # Flaten the axes array
+    axes = axes.flatten()
+    ax_i = 0
+
     # Initialize the dataframes
     predictions = pd.DataFrame(index=X_test.index)
     feature_importances = pd.DataFrame(index=X_test.columns)
@@ -324,11 +332,12 @@ def plot_feature_importance(classifiers: list, X_test: pd.DataFrame) -> pd.DataF
     for classifier in classifiers:
 
         # Load the model from disk
-        classifier_name = model.__class__.__name__
-        model = joblib.load(
-                            os.path.join(f'models/grid_search_{classifier.__class__.__name__}.pkl')
-                           ).best_estimator_
+        classifier_name = classifier.__class__.__name__
 
+        model = joblib.load(
+                            os.path.join(f'models/grid_search_{classifier_name}.pkl')
+                           ).best_estimator_
+        
         # Append results to the list
         models.append((classifier_name, model))
 
@@ -336,12 +345,37 @@ def plot_feature_importance(classifiers: list, X_test: pd.DataFrame) -> pd.DataF
         predictions[classifier_name] = model.predict(X_test)
 
         # Get the feature importances
-        feature_importances[classifier_name] = model.feature_importances_
+        feature_importance = model.feature_importances_
+
+        # Store the feature importances
+        feature_importances[classifier_name] = feature_importance
 
         # Create plot        
         sns.barplot(x=feature_importance, y=X_test.columns, ax=axes[ax_i])
-        axes[ax_i].set_title(classifier_name)
-        
+
+        # Set title
+        axes[ax_i].set_title(classifier_name, fontsize=22)
+
+        # Set labels
+        axes[ax_i].set_xlabel('Feature Importance', fontsize=20)
+        axes[ax_i].set_ylabel('Features', fontsize=20)
+
+        # Set tick labels
+        axes[ax_i].tick_params(axis='both', which='major', labelsize=18)
+
+        # Add annotations for horizontal bars
+        for p in axes[ax_i].patches:
+            axes[ax_i].annotate(
+                str(round(p.get_width(), 2)),
+                (p.get_width() + 0.015, p.get_y() + 1.1 * p.get_height()),
+                ha='center',
+                va='center',
+                xytext=(0, 10),
+                textcoords='offset points',
+                fontsize=16
+            )
+
+        # Increment the index        
         ax_i += 1
 
     plt.tight_layout()
@@ -354,7 +388,16 @@ def plot_prediction_correlation(predictions: pd.DataFrame) -> None:
 
     # Plot correlation of predictions.
     fig, ax = plt.subplots(figsize=(4, 4))
-    fig.suptitle('Prediction correlations');
-    sns.heatmap(predictions.corr(), square=True, cmap='RdBu', annot=True, ax=ax);
+    sns.heatmap(predictions.corr(), square=True, cmap='RdBu', annot=True, annot_kws={'size': 16}, ax=ax);
+
+    # Set title
+    fig.suptitle('Prediction correlations', fontsize=22)
+
+    # Set tick_params
+    ax.tick_params(axis='both', which='major', labelsize=18)
+
+    # Colorbar
+    cbar = ax.collections[0].colorbar
+    cbar.ax.tick_params(labelsize=16)
 
     plt.show()

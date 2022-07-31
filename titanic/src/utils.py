@@ -4,6 +4,7 @@ import pandas as pd
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.impute import KNNImputer
 from sklearn.model_selection import StratifiedKFold, cross_val_score, GridSearchCV, LeaveOneOut
+from sklearn.metrics import accuracy_score
 # from src import kaggle_api
 
 # Function x**(1/2) for Y-axis scale
@@ -206,23 +207,25 @@ def leave_one_out_cv(classifiers: list, X_train: pd.DataFrame, y_train: pd.Serie
                                     f'models/LOO_{clf.__class__.__name__}.pkl'
                                 )
         if os.path.exists(save_path):
-            loo_cv = joblib.load(save_path)
-        else:
-            # Run a parameter grid search for each model
-            loo_cv = GridSearchCV(clf, param_grid, cv=loo, verbose=True, n_jobs=-1)
-            loo_cv.fit(X_train, y_train)
+            continue
+        
+        # Run a parameter grid search for each model
+        loo_cv = GridSearchCV(clf, param_grid, cv=loo, verbose=True, n_jobs=-1)
+        loo_cv.fit(X_train, y_train)
 
-            # Get the best model
-            models.append((classifier_name, loo_cv.best_estimator_))
+        # Get the best model
+        models.append((classifier_name, loo_cv.best_estimator_))
 
-            # Save the grid search to disk
-            return joblib.dump(loo_cv, save_path), models
+        # Save the grid search to disk
+        return joblib.dump(loo_cv, save_path), models
 
 # Function to test the best model
 def model_submission(models: list, X_train: pd.DataFrame, y_train: pd.Series, X_test: pd.DataFrame):
 
     # Load the file data/gender_submission.csv
     gender_submission = pd.read_csv('data/gender_submission.csv', header=0)
+
+    #
 
     # Iterate on the models
     for model in models:
@@ -242,10 +245,10 @@ def model_submission(models: list, X_train: pd.DataFrame, y_train: pd.Series, X_
         y_pred = grid_search.predict(X_test)
 
         # Get the accuracy of the model
-        accuracy = accuracy_score(gender_submission, y_pred)
+        accuracy = accuracy_score(gender_submission['Survived'], y_pred)
 
         # Print accuracy
-        print(f'Accuracy of {model_name} = {accuracy}')
+        print(f'Accuracy of {model_name} vs optimal submission is {accuracy}')
 
         # Create a submission dataframe
         submission = pd.DataFrame({'PassengerId': (X_test.index+1), 'Survived': y_pred})
@@ -281,10 +284,10 @@ def model_submission_loo(models: list, X_train: pd.DataFrame, y_train: pd.Series
         y_pred = loo.predict(X_test)
 
         # Get the accuracy of the model
-        accuracy = accuracy_score(gender_submission, y_pred)
+        accuracy = accuracy_score(gender_submission['Survived'], y_pred)
 
         # Print accuracy
-        print(f'Accuracy of {model_name} = {accuracy}')
+        print(f'Accuracy of {model_name} vs optimal submission is {accuracy}')
 
         # Create a submission dataframe
         submission = pd.DataFrame({'PassengerId': (X_test.index+1), 'Survived': y_pred})

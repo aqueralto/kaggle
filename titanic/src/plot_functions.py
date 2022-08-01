@@ -7,7 +7,6 @@ import seaborn as sns
 from sklearn.model_selection import cross_val_score, ShuffleSplit, learning_curve
 from src import utils
 
-
 # Function to create different barcharts
 def plot_barcharts(df: pd.DataFrame, x_label: str, y_label: str, hue: str, colors: list, cols: int, figsize: tuple):
     '''Plot a barchart for each category in the dataframe.
